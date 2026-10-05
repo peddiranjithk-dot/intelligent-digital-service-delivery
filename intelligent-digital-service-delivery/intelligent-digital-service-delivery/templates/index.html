@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intelligent Digital Service Delivery</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:900px;margin:2rem auto;padding:0 1rem;color:#1f2937}
+  h1{font-size:1.5rem} form,table{width:100%} input,textarea,select,button{font:inherit;padding:.5rem;margin:.25rem 0;width:100%;box-sizing:border-box}
+  button{background:#2563eb;color:#fff;border:0;border-radius:6px;cursor:pointer;width:auto;padding:.5rem 1rem}
+  table{border-collapse:collapse;margin-top:1rem} th,td{border-bottom:1px solid #e5e7eb;padding:.5rem;text-align:left;font-size:.9rem}
+  .High{color:#dc2626;font-weight:600} .Medium{color:#d97706} .Low{color:#059669}
+  #msg{color:#059669}
+</style>
+</head>
+<body>
+<h1>Intelligent Digital Service Delivery</h1>
+<h3>Submit a service request</h3>
+<form id="f">
+  <input name="name" placeholder="Your name" required>
+  <input name="contact" placeholder="Phone / email">
+  <textarea name="description" rows="3" placeholder="Describe your issue (e.g. 'Water pipe leak near my house, urgent')" required></textarea>
+  <button>Submit</button> <span id="msg"></span>
+</form>
+
+<h3>Requests (sorted by priority)</h3>
+<table>
+  <thead><tr><th>#</th><th>Name</th><th>Description</th><th>Category</th><th>Priority</th><th>Status</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+
+<script>
+const STATUSES = {{ statuses|tojson }};
+async function load(){
+  const data = await (await fetch('/api/requests')).json();
+  document.getElementById('rows').innerHTML = data.map(r => `
+    <tr><td>${r.id}</td><td>${esc(r.name)}</td><td>${esc(r.description)}</td>
+    <td>${r.category}</td><td class="${r.priority}">${r.priority}</td>
+    <td><select onchange="setStatus(${r.id}, this.value)">
+      ${STATUSES.map(s => `<option ${s===r.status?'selected':''}>${s}</option>`).join('')}
+    </select></td></tr>`).join('');
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+async function setStatus(id,status){
+  await fetch('/api/requests/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
+}
+document.getElementById('f').onsubmit = async e => {
+  e.preventDefault();
+  const body = Object.fromEntries(new FormData(e.target));
+  const r = await (await fetch('/api/requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  document.getElementById('msg').textContent = `Request #${r.id} routed to ${r.category} (${r.priority} priority)`;
+  e.target.reset(); load();
+};
+load();
+</script>
+</body>
+</html>
